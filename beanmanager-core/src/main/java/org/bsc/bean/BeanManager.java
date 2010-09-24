@@ -7,7 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
 
-import org.bsc.processor.annotation.ResourceBundle;
+//import org.bsc.processor.annotation.ResourceBundle;
 
 /**
 It's an implementation of DAO interface (see DAO pattern ) for a jdbc data source
@@ -66,7 +66,7 @@ conn.close();
 @see bsc.bean.PropertyDescriptorField
 @see bsc.bean.BeanDescriptorEntity
 */
-@ResourceBundle
+//@ResourceBundle
 public interface BeanManager<T> {
 
   /**
@@ -76,6 +76,19 @@ public interface BeanManager<T> {
    */
   public BeanDescriptorEntity getBeanDescriptor();
 
+  /**
+  @return array of PropertyDescriptorField inside beanInfo
+  @see bsc.bean.PropertyDescriptorField
+  */
+  public PropertyDescriptorField [] getPropertyDescriptorsFields();
+
+
+  /**
+   *
+   * @return primary key object
+   * @see bsc.bean.PrimaryKey
+   */
+  public PrimaryKey getPrimaryKey();
 
   /**
   * get persistent bean class
@@ -128,7 +141,7 @@ public interface BeanManager<T> {
    *@param bean object to update into db
    *@exception SQLException
    */
-  public int store(Connection conn, T bean) throws SQLException;
+  public int store(Connection conn, T ... bean) throws SQLException;
 
   /**
   * update bean into db having the possibility of
@@ -237,7 +250,7 @@ public interface BeanManager<T> {
    reload bean instance from db
    @param conn database connection
    @param bean  bean intance
-   @return bean instance updated (same of parameter bean)
+   @return bean instance updated (same of parameter bean) - null if not found
    @exception SQLException
    @see #findById
    */

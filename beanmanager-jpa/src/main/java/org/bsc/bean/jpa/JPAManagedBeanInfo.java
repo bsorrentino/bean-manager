@@ -25,6 +25,7 @@ import javax.persistence.Id;
 import javax.persistence.Inheritance;
 import javax.persistence.InheritanceType;
 import javax.persistence.JoinColumn;
+import javax.persistence.MappedSuperclass;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
 import javax.persistence.Transient;
@@ -36,6 +37,7 @@ import org.bsc.bean.PropertyDescriptorField;
 import org.bsc.bean.PropertyDescriptorJoin;
 import org.bsc.bean.PropertyDescriptorPK;
 import org.bsc.bean.generators.UUIDValueGenerator;
+import org.bsc.util.Configurator;
 import org.bsc.util.Log;
 
 /**
@@ -70,7 +72,38 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
 
     }
 
-    protected static PropertyDescriptor processJoin(JPAManagedBeanInfo<?> result, AnnotatedElement f, OneToOne relation, PropertyDescriptor pd) throws Exception {
+    private static final boolean isNullOrEmpty( String value ) {
+        //return (value==null || value.isEmpty());
+
+        if( value==null ) return true;
+        if( value.length()==0 ) return true;
+        if( value.trim().length() == 0 ) return true;
+        return false;
+    }
+
+    protected final static String getTableName( Class<?> beanClass, String defValue ) {
+        
+    	if( beanClass == null && defValue == null ) throw new IllegalArgumentException( "both parameters 'beanClass' and  parameter 'defValue' are null!");
+    	
+    	Table annotation = beanClass.getAnnotation( Table.class );
+    	
+    	String tableName = ( annotation != null ) ? annotation.name() : defValue;
+    	
+    	if( isNullOrEmpty( tableName ) ) throw new IllegalStateException( "tableName is not defined");
+    	
+    	String schema = ( annotation != null ) ? annotation.schema() : null ;
+
+        if( isNullOrEmpty(schema) ) {
+
+            schema = Configurator.getDefaultSchema();
+        }
+        
+    	return ( !isNullOrEmpty(schema) ) ?
+    		String.format( "%s.%s", schema, tableName ) :
+    		tableName;	
+    }
+    
+    protected static PropertyDescriptor processJoin(JPAManagedBeanInfo<?> result, AnnotatedElement f, OneToOne relation, PropertyDescriptor pd ) throws Exception {
 
         if( relation==null || pd==null ) return null;
 
@@ -89,6 +122,7 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
         String fieldB = jc.referencedColumnName();
         
         // GET JOIN TBLE NAME
+/*
         Table joinTable = type.getAnnotation(Table.class);
         if( joinTable!=null) {
         	jtable = joinTable.name();
@@ -96,6 +130,8 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
         else {	
         	jtable = (jc.table()==null || jc.table().isEmpty()) ? type.getSimpleName() : jc.table();
         }
+*/        
+        jtable = getTableName( type, ( isNullOrEmpty(jc.table())) ? type.getSimpleName() : jc.table() );
         
         PropertyDescriptorField pf = new PropertyDescriptorField( pd );
         pf.setFieldName(fieldA);
@@ -107,7 +143,7 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
 
         JPAManagedBeanInfo<?> beanInfo = JPAManagedBeanInfo.create(type);
         
-// TODO
+// TODO add aggretation feature
 //        result.getAdditionalList().add( beanInfo );
         
         PropertyDescriptor[] pp = beanInfo.getPropertyDescriptors();
@@ -124,7 +160,7 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
                 pdj.setValue( "relation.name", pd.getName());
                 pdj.setSQLType( BeanManagerUtils.getSQLType(ppd.getPropertyType()));
 
-                result.properties.put( ppd.getName() , pdj );
+                result.addProperty( pdj );
             }
         }
 
@@ -135,41 +171,69 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
 	protected static void processJoinFields( JPAManagedBeanInfo<?> result, String joinTableName, Class<?> superClass, PropertyDescriptor[] properties, List<String> pkList ) {
         for( PropertyDescriptor pd : properties ) {
             try {
-                Field f = superClass.getDeclaredField(pd.getName());
+            	if( "class".equals(pd.getName()) ) continue;
+            	
+            	Field f = null;
+            	try {
+            		f = superClass.getDeclaredField(pd.getName());
+            	}
+            	catch (NoSuchFieldException ex) {
+                    // TODO LOG
+                    //Log.debug( "the field [{0}] doesn't exist!", pd.getName() );
+            	}
+            	
                 Method m = pd.getReadMethod();
                 
-                Transient t = f.getAnnotation( Transient.class );
-                if( t!=null ) {
-                    Log.debug( "the field [{0}] is transient",  pd.getName() );
+            	//
+            	// TRANSIENT
+            	// 
+            	if( f!=null ) {
+                    Transient t = f.getAnnotation( Transient.class );
+                    if( t!=null ) {
+                        Log.debug( "the field [{0}] is transient",  pd.getName() );
 
-                    result.properties.put( pd.getName(), pd);
-                    continue;
+                        result.addProperty( pd );
+                        continue;
 
-                }
+                    }            		
+            	}
+            	if( m!=null ) {
+                    Transient t = m.getAnnotation( Transient.class );
+                    if( t!=null ) {
+                        Log.debug( "the field [{0}] is transient",  pd.getName() );
 
+                        result.addProperty( pd );
+                        continue;
+
+                    }            		
+            		
+            	}
+  
                 PropertyDescriptorJoin pdj = new PropertyDescriptorJoin(pd);
                 pdj.setJoinTable(joinTableName);
                 pdj.setSQLType( BeanManagerUtils.getSQLType(pd.getPropertyType()));
                 
-            	Id idf = f.getAnnotation( Id.class );
+            	Id idf = null;
+            	if( f!=null ) idf = f.getAnnotation( Id.class );
+            	
             	Id idm = m.getAnnotation(Id.class );
-            	if( idf!=null || idm!=null  ) {
+            	
+                processColumn( result, f, pdj );
+                processColumn( result, m, pdj );
+
+                if( idf!=null || idm!=null  ) {
             		pkList.add( pdj.getFieldName() );
             	}
-                                  	
-                processColumn( result, f, f.getAnnotation(Column.class), pdj );
-                processColumn( result, m, m.getAnnotation(Column.class), pdj );
 
-                if( !result.properties.containsKey( pd.getName() ) ) {
-                	result.properties.put( pd.getName(), pdj);
+
+                if( !result.containsProperty( pd.getName() ) ) {
+                	result.addProperty( pdj );
                 }
                 else {
                 	Log.debug( "property {0} is duplicated!", pd.getName());
                 }
 
 
-            } catch (NoSuchFieldException ex) {
-                Log.error( "the field [{0}] in class [{1}] doesn't exist!", pd.getName(), superClass.getName() );
             } catch (SecurityException ex) {
                 Log.error( "security issue on the field [{0}]", ex, pd.getName() );
             } catch (Exception ex) {
@@ -180,9 +244,12 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
 		
 	}
     
-    protected static PropertyDescriptorPK processId(JPAManagedBeanInfo<?> result, AnnotatedElement f, Id annotation, PropertyDescriptor pd) throws Exception {
-        if( annotation==null || pd==null ) return null;
-
+    protected static PropertyDescriptorPK processId(JPAManagedBeanInfo<?> result, AnnotatedElement f, PropertyDescriptor pd) throws Exception {
+        if(pd==null || f==null ) return null;
+        
+        Id id = f.getAnnotation(Id.class);
+        
+        if( id==null ) return null;
         
         PropertyDescriptorPK pk = null;
 
@@ -213,10 +280,13 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
      * @param pd
      * @throws Exception
      */
-    protected static void processColumn( JPAManagedBeanInfo<?> result, AnnotatedElement f, Column annotation, PropertyDescriptorField pd) throws Exception {
+    protected static void processColumn( JPAManagedBeanInfo<?> result, AnnotatedElement f, PropertyDescriptorField pd) throws Exception {
 
-        if( annotation==null || pd==null ) return;
+        if( pd==null || f==null ) return;
 
+        Column annotation = f.getAnnotation(Column.class);
+        
+        if( annotation==null ) return;
         //boolean unique = annotation.unique();
 
         if( !annotation.insertable() && !annotation.updatable() ) pd.setReadOnly(true);
@@ -250,41 +320,79 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
 
         for( PropertyDescriptor pd : properties ) {
             try {
-                Field f = beanClass.getDeclaredField(pd.getName());
-                Method m = pd.getReadMethod();
+            	
+            	if( "class".equals(pd.getName()) ) continue;
+            	
+            	Field f = null;
+            	try {
+            		f = beanClass.getDeclaredField(pd.getName());
+            	}
+            	catch (NoSuchFieldException ex) {
+                    // TODO LOG
+                    //Log.debug( "the field [{0}] doesn't exist!", pd.getName() );
+            	}
                 
-                Transient t = f.getAnnotation( Transient.class );
-                if( t!=null ) {
-                    Log.debug( "the field [{0}] is transient",  pd.getName() );
+            	Method m = pd.getReadMethod();
 
-                    result.properties.put( pd.getName(), pd);
-                    continue;
-
+                if( m==null ) {
+                    Log.warn( "property {0} has no getter method. ignored!", pd.getName());
                 }
 
-                {   // JOIN
+            	//
+            	// TRANSIENT
+            	// 
+            	if( f!=null ) {
+                    Transient t = f.getAnnotation( Transient.class );
+                    if( t!=null ) {
+                        Log.debug( "the field [{0}] is transient",  pd.getName() );
+
+                        result.addProperty( pd );
+                        continue;
+
+                    }            		
+            	}
+            	if( m!=null ) {
+
+                    Transient t = m.getAnnotation( Transient.class );
+                    if( t!=null ) {
+                        Log.debug( "the field [{0}] is transient",  pd.getName() );
+
+                        result.addProperty( pd );
+                        continue;
+
+                    }
+            		
+            	}
+            	
+            	//
+            	//	JOIN
+            	//
+
+            	if( f!=null ) {
                     PropertyDescriptor ppd = processJoin( result, f, f.getAnnotation(OneToOne.class), pd);
                     if( ppd!=null ) {
 
-                        result.properties.put( pd.getName(), ppd);
+                        result.addProperty( ppd );
                         continue;
                     }
                 }
 
-                { // ID
-                    PropertyDescriptorPK pf = null;
-
-                    pf =    processId(result, f, f.getAnnotation( Id.class ), pd );
-                    if( pf==null ) pf = processId(result, m, m.getAnnotation( Id.class ), pf );
-
+            	//
+            	// ID
+            	//
+                { 
+                    PropertyDescriptorPK pf = processId(result, f , pd );                    	
+                    
+                    if( pf==null ) pf = processId(result, m, pd );
+                   
                     if( pf!= null ) {
 
-                        processColumn( result, f, f.getAnnotation(Column.class), pf );
-                        processColumn( result, m, m.getAnnotation(Column.class), pf );
+                        processColumn( result, f, pf );
+                        if( m!=null ) processColumn( result, m, pf );
 
                         pf.setSQLType( BeanManagerUtils.getSQLType(pd.getPropertyType()));
 
-                        result.properties.put( pd.getName(), pf);
+                        result.addProperty( pf );
 
                         pk.add(pf);
                         
@@ -293,7 +401,10 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
                     }
                 }
 
-                { // OTHER
+                //
+                // OTHER
+                //
+                { 
                     PropertyDescriptorField pf = null;
 
                     if( pd instanceof PropertyDescriptorField ) {
@@ -302,17 +413,14 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
 
                     if( pf==null ) pf = new PropertyDescriptorField( pd );
 
-                    processColumn( result, f, f.getAnnotation(Column.class), pf );
-                    processColumn( result, m, m.getAnnotation(Column.class), pf );
+                    processColumn( result, f, pf );
+                    if( m!=null ) processColumn( result, m, pf );
 
                     pf.setSQLType( BeanManagerUtils.getSQLType(pd.getPropertyType()));
 
-                    result.properties.put( pd.getName(), pf);
+                    result.addProperty( pf );
                 }
 
-
-            } catch (NoSuchFieldException ex) {
-                Log.error( "the field [{0}] doesn't exist!", pd.getName() );
             } catch (SecurityException ex) {
                 Log.error( "security issue on the field [{0}]", ex, pd.getName() );
             } catch (Exception ex) {
@@ -322,6 +430,27 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
         
     }
 
+    /**
+     * 
+     * @param beanClass
+     * @return
+     */
+    private static Class<?> getFirstNontEntityClass( Class<?> beanClass ) {
+
+
+        Class<?> superClass = beanClass.getSuperclass();
+        while( superClass!=null ) {
+            if( superClass.isAnnotationPresent(Entity.class)) {
+
+                superClass = superClass.getSuperclass();
+                continue;
+            }
+            return superClass;
+        }
+
+        return null;
+    }
+
     public static <T> JPAManagedBeanInfo<T>  create( Class<T> beanClass ) throws IntrospectionException{
 
     	{
@@ -329,37 +458,59 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
         if( entity == null ) throw new IllegalArgumentException( String.format("class [%s] is not an Entity!", beanClass.getName()));
     	}
 
+    	/*
         String tableName = beanClass.getSimpleName();
         {
         Table table = beanClass.getAnnotation( Table.class );
         if( table != null ) tableName = table.name();
         }
-        
+        */
+    	
+    	String tableName = getTableName( beanClass, beanClass.getSimpleName() );
+    	
         //
         // CHECK FOR JOINED INHERITANCE
         //
         String joinTableName = null;
         
+        boolean noEntityInheritance = false;
+        boolean singleTableInheritance = false;
         boolean joinedInheritance = false;
+        boolean mappedSuperclass = false;
         
     	Class<?> superClass = beanClass.getSuperclass();
-    	
+
     	if( superClass != null ) {
     	
     		Entity entity = superClass.getAnnotation( Entity.class );
     		if( entity != null ) {
     	    	
     			Inheritance inheritance = superClass.getAnnotation(Inheritance.class);
-    			if( inheritance==null )  throw new IllegalStateException( String.format(" Inheritance annotation for class [%s] not found!", superClass.getName()));
-        
-    			if( inheritance.strategy()!=InheritanceType.JOINED) throw new IllegalStateException( String.format("Only Inheritance stategy JOINED is supported!") );
+    			if( inheritance==null )  {
+    				singleTableInheritance = true;
+    			}
+    			else {
+    				if( inheritance.strategy()==InheritanceType.TABLE_PER_CLASS) throw new IllegalStateException( String.format("TABLE_PER_CLASS is not supported yet!") );
 
-    			joinedInheritance = true;
-
-    			joinTableName = superClass.getSimpleName();
-    	        Table table = superClass.getAnnotation( Table.class );
-    	        if( table != null ) joinTableName = table.name();
-    			
+    				if( inheritance.strategy()==InheritanceType.JOINED ) {
+    					joinedInheritance = true;
+    					
+    					/*
+    					joinTableName = superClass.getSimpleName();
+    					Table table = superClass.getAnnotation( Table.class );
+    					if( table != null ) joinTableName = table.name();
+    					*/
+    					joinTableName = getTableName( superClass, superClass.getSimpleName());
+    				}
+    				else {
+    					singleTableInheritance = true;
+    				}
+    			}
+    		}
+    		else {
+    			MappedSuperclass msc = superClass.getAnnotation(MappedSuperclass.class);
+    			mappedSuperclass = (msc!=null);			
+    			noEntityInheritance = (msc==null);
     		}
     	}
     	
@@ -367,17 +518,28 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
 
         JPAManagedBeanInfo<T> result = new JPAManagedBeanInfo<T>(beanClass);
 
-        BeanInfo beanInfo = (joinedInheritance) ? 
-        						java.beans.Introspector.getBeanInfo(beanClass,superClass) :
-        						java.beans.Introspector.getBeanInfo(beanClass);        
-                
+
+        BeanInfo beanInfo = null;
+        if (joinedInheritance || noEntityInheritance) {
+
+            beanInfo = java.beans.Introspector.getBeanInfo(beanClass, superClass);
+            
+        } else {
+
+            Class<?> stopClass = getFirstNontEntityClass(beanClass);
+            beanInfo = (stopClass != null) ?
+                java.beans.Introspector.getBeanInfo(beanClass, stopClass) :
+                java.beans.Introspector.getBeanInfo(beanClass);
+
+        }
+
         if( null==beanInfo ) throw new IllegalStateException( "beanInfo not found!");
 
         result.beanDescriptor = new BeanDescriptorEntity( beanClass, tableName );
 
         PropertyDescriptor pd[] = beanInfo.getPropertyDescriptors();
 
-        result.properties = new java.util.LinkedHashMap<String, PropertyDescriptor>( pd.length );
+        result.props = new java.util.LinkedHashMap<String, PropertyDescriptor>( pd.length );
 
         List<PropertyDescriptorPK> pkList = new LinkedList<PropertyDescriptorPK>();
         
@@ -399,7 +561,7 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
             	result.beanDescriptor.createJoinRelation(joinTableName, new org.bsc.bean.JoinCondition(pkList.get(i).getFieldName(), jpkList.get(i)));        		
         	}
         	
-        	result.getAdditionalList().add( JPAManagedBeanInfo.create(superClass));
+        	result.getAdditionalList().add( JPAManagedBeanInfo.create(superClass ));
 
         }
         
@@ -407,78 +569,44 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
     }
     
     
-    public static <T> JPAManagedBeanInfo<T> create2( Class<T> beanClass ) throws IntrospectionException {
-        if( beanClass == null ) throw new IllegalArgumentException( "beanClass parametere is null!");
-
-        String tableName = null;
-
-        Entity entity = beanClass.getAnnotation( Entity.class );
-        if( entity == null ) {
-            throw new IllegalArgumentException( String.format("class [%s] is not an Entity!", beanClass.getName()));
-        }
-
-        tableName = beanClass.getSimpleName();
-        Table table = beanClass.getAnnotation( Table.class );
-        if( table != null ) {
-
-            tableName = table.name();
-
-        }
-
-        Log.debug( "table name [{0}]", tableName);
-
-        JPAManagedBeanInfo<T> result = new JPAManagedBeanInfo<T>(beanClass);
-
-        //BeanInfo beanInfo = BeanManagerUtils.loadBeanInfo( JPAManagedBeanInfo.class.getClassLoader(), beanClass);
-        BeanInfo beanInfo = java.beans.Introspector.getBeanInfo(beanClass);
-
-        if( null==beanInfo ) throw new IllegalStateException( "beanInfo not found!");
-
-
-        result.beanDescriptor = new BeanDescriptorEntity( beanClass, tableName );
-
-        // TODO
-        //BeanDescriptor bd = beanInfo.getBeanDescriptor();
-        //result.beanDescriptor = new BeanDescriptorEntity( bd );
-        //result.beanDescriptor.setEntityName(tableName);
-
-        PropertyDescriptor pd[] = beanInfo.getPropertyDescriptors();
-
-        result.properties = new java.util.LinkedHashMap<String, PropertyDescriptor>( pd.length );
-
-        processFields( result, beanClass, pd, null );
-
-        return result;
-        
-    }
 
     protected Class<T> beanClass;
     protected java.util.List<RelationBeanFactory> relationBeanList;
     private java.util.List<JPAManagedBeanInfo<?>> additionalList;
 
     
-    protected java.util.Map<String,PropertyDescriptor> properties = null;
+    protected java.util.Map<String,PropertyDescriptor> props = null;
     protected BeanDescriptorEntity beanDescriptor = null;
 
     protected JPAManagedBeanInfo( Class<T> beanClass ) {
         setBeanClass(beanClass);
     }
 
+    private void addProperty( PropertyDescriptor pd ) {
+    	props.put( pd.getName(), pd);
+    	
+    }
+    private boolean containsProperty( String name ) {
+    	return props.containsKey(name);
+    }
+    
     protected java.util.List<JPAManagedBeanInfo<?>> getAdditionalList() {
         if( additionalList==null) additionalList = new java.util.ArrayList<JPAManagedBeanInfo<?>>(5);
     	
         return additionalList;
     }
     
-    protected <F extends PropertyDescriptorField> F getPropertyField( String name ) {
-        return (F)properties.get(name);
+    @SuppressWarnings("unchecked")
+	protected <F extends PropertyDescriptorField> F getPropertyField( String name ) {
+        return (F)props.get(name);
     }
 
     public Class<T> getBeanClass() {
        return beanClass;
     }
 
-    public void setBeanClass(Class<? extends T> type) {
+    @SuppressWarnings("unchecked")
+	public void setBeanClass(Class<? extends T> type) {
         beanClass = (Class<T>) type;
     }
 
@@ -487,7 +615,7 @@ public class JPAManagedBeanInfo<T> implements  ManagedBeanInfo<T> {
     }
 
     public PropertyDescriptor[] getPropertyDescriptors() {
-        return properties.values().toArray( new PropertyDescriptor[ properties.size() ]);
+        return props.values().toArray( new PropertyDescriptor[ props.size() ]);
     }
 
     public EventSetDescriptor[] getEventSetDescriptors() {

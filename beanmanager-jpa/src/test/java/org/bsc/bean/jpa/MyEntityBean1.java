@@ -14,7 +14,7 @@ import javax.persistence.Table;
  * @author softphone
  */
 @Entity
-@Table( name="MASTER_ENTITY")
+@Table( name="MASTER_ENTITY", schema="APP")
 //@PrimaryKeyJoinColumn(name="CUST_ID")
 public class MyEntityBean1 extends MyEntityBean2 {
 
@@ -26,10 +26,12 @@ public class MyEntityBean1 extends MyEntityBean2 {
     
     private String property1_2;
 
+    @Override
     public String getId() {
         return id;
     }
 
+    @Override
     public void setId(String id) {
         this.id = id;
     }

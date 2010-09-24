@@ -13,9 +13,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Properties;
 import java.util.logging.LogManager;
+import org.bsc.bean.AbstractBeanManager;
+
 
 import org.bsc.bean.BeanManager;
+import org.bsc.bean.PropertyDescriptorField;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -53,6 +57,26 @@ public class BeanManagerTest {
     }
 
     @Test
+    public void inheritance() throws Exception  {
+    	final String id = "ID1";
+    	
+        BeanManager<MyBean> em = JPABeanManagerFactory.createBeanManager(MyBean.class);
+         
+         MyBean bean1 = em.findById( conn, id);
+         if( bean1!=null )
+         	em.remove(conn, bean1);
+         
+         MyBean bean = new MyBean();
+
+         bean.setId(id);
+         bean.setContact( "TEST");
+
+         em.create(conn, bean);
+
+    	
+    }
+    
+    @Test //@Ignore
     public void testJOINED() throws Exception {
         BeanManager<MyEntityBean1> myEntityBean1Manager = JPABeanManagerFactory.createBeanManager(MyEntityBean1.class);
         //BeanManager<MyEntityBean2> myEntityBean2Manager = JPABeanManagerFactory.createBeanManager(MyEntityBean2.class);
@@ -131,5 +155,28 @@ public class BeanManagerTest {
         
         for( MyUser u : users ) System.out.println( u );
 
+    }
+
+    @Test
+    public void checkNonEntityInheritance() {
+
+        AbstractBeanManager<ItemCifF00091> m = (AbstractBeanManager<ItemCifF00091>) JPABeanManagerFactory.createBeanManager(ItemCifF00091.class);
+
+        PropertyDescriptorField fieldM = m.getPropertyByName("M");
+
+        Assert.assertNull(fieldM);
+
+        {
+        String cs = m.getCreateStatement();
+
+        System.out.println( "CREATE STATEMENT\n" + cs );
+        }
+
+        {
+        String cs = m.getFindAllStatement();
+
+        System.out.println( "FINDALL STATEMENT\n" + cs );
+
+        }
     }
 }

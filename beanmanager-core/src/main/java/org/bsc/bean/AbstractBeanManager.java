@@ -666,23 +666,31 @@ protected String getStorePropertyListInclude(  String begin,
 
     Object value = null;
 
-    try {
-
-    DataAdapter adapter = BeanManagerUtils.lookupAdapter(p);
+    DataAdapter adapter = BeanManagerUtils.lookupAdapter( p );
 
     if( null==adapter ) {
         Log.warn("no adapter found for property {0} ", p.getName() );
         return ;
     }
-    
-    
-    value = adapter.getValue(rs,p);
 
-    Log.debug("ADAPTER {2} used={0} value={1}", adapter.getClass().getName(), value, p.getName());
+    try {
 
-    if(value!=null) {
-      invokeWriteMethod(p, bean, value);
-    }
+        try {
+
+            value = adapter.getValue(rs, p);
+
+        } catch (SQLException e) {
+            // this catch is to support of optional field
+
+            Log.warn( "getValue error: [{2}] adapter [{0}] field [{1}] ", adapter.getClass().getName(), p.getDerefFieldName(), e.getMessage() );
+            return;
+        }
+
+        Log.debug("ADAPTER {2} used={0} value={1}", adapter.getClass().getName(), value, p.getName());
+
+        if (value != null) {
+            invokeWriteMethod(p, bean, value);
+        }
 
     }
     catch( Exception ex ) {
@@ -709,7 +717,7 @@ protected String getStorePropertyListInclude(  String begin,
 
   {
 
-    DataAdapter adapter = BeanManagerUtils.lookupAdapter(p);
+    DataAdapter adapter = BeanManagerUtils.lookupAdapter( p );
 
     adapter.setValue( ps, ordinal, value, p);
 
@@ -752,7 +760,7 @@ protected String getStorePropertyListInclude(  String begin,
    * @return
    * @throws SQLException
    */
-  int setStoreStatement( PreparedStatement ps, Object bean ) throws java.sql.SQLException
+  protected int setStoreStatement( PreparedStatement ps, Object bean ) throws java.sql.SQLException
   {
 
     int i = 0;
@@ -779,6 +787,8 @@ protected String getStorePropertyListInclude(  String begin,
 
     }
     catch( Exception ex ) {
+      Log.error("setStoreStatement", ex );
+
       Object[] params = { ex.getMessage(), props[i].getName() };
       throw new SQLException( BeanManagerUtils.getMessage("ex.set_store_stmt",params) );
     }
@@ -833,8 +843,10 @@ private int setStoreStatementInclude( PreparedStatement ps,
 
     }
     catch( Exception ex ) {
-      Object[] params = { ex.getMessage(), props[i].getName() };
-      throw new SQLException( BeanManagerUtils.getMessage("ex.set_store_stmt",params) );
+        Log.error("setStoreStatementInclude", ex);
+
+        Object[] params = {ex.getMessage(), props[i].getName()};
+        throw new SQLException(BeanManagerUtils.getMessage("ex.set_store_stmt", params));
     }
 
     return ordinal;
@@ -884,8 +896,10 @@ private int setStoreStatementInclude( PreparedStatement ps,
 
     }
     catch( Exception ex ) {
-      Object[] params = { ex.getMessage(), props[i].getName() };
-      throw new SQLException( BeanManagerUtils.getMessage("ex.set_store_stmt",params) );
+        Log.error("setStoreStatementExclude", ex);
+
+        Object[] params = {ex.getMessage(), props[i].getName()};
+        throw new SQLException(BeanManagerUtils.getMessage("ex.set_store_stmt", params));
     }
 
     return ordinal;
@@ -908,7 +922,7 @@ private int setStoreStatementInclude( PreparedStatement ps,
    * @return
    * @throws SQLException
    */
-  private int setCreateStatement(
+  protected int setCreateStatement(
                     Connection connection,
                     PreparedStatement ps,
                     Object bean  ) throws java.sql.SQLException
@@ -947,6 +961,7 @@ private int setStoreStatementInclude( PreparedStatement ps,
 
     }
     catch( Exception ex ) {
+      Log.error("setCreateStatement", ex );
       Object[] params = { ex.getMessage(), props[i].getName() };
       throw new SQLException( BeanManagerUtils.getMessage("ex.set_create_stmt", params) );
     }
@@ -1037,20 +1052,25 @@ private int setStoreStatementInclude( PreparedStatement ps,
  update bean into db
 
  @param conn database connection
- @param bean object to update into db
+ @param beans objects to update into db
  @exception SQLException
  */
- public int store( Connection conn,  Object bean ) throws SQLException {
+ public int store( Connection conn,  T ... beans ) throws SQLException {
     String sql = this.getStoreStatement();
 
     Log.TRACE_CMD("store", sql );
 
     PreparedStatement ps = conn.prepareStatement(sql);
 
-    this.setStoreStatement( ps, bean );
+    int result = 0;
 
-    int result = ps.executeUpdate();
+    for( T bean : beans ) {
+        ps.clearParameters();
+        this.setStoreStatement( ps, bean );
 
+        result += ps.executeUpdate();
+    }
+    
     ps.close();
 
     return result;
@@ -1078,7 +1098,7 @@ private int setStoreStatementInclude( PreparedStatement ps,
  @param constraints allow to include or exclude properties from update
  @exception SQLException
  */
- public int store( Connection conn, Object bean, StoreConstraints constraints, String... properties ) throws SQLException {
+ public int store( Connection conn, T bean, StoreConstraints constraints, String... properties ) throws SQLException {
     int result = 0;
     
     if( StoreConstraints.EXCLUDE_PROPERTIES==constraints ) {
@@ -1524,13 +1544,14 @@ private int setStoreStatementInclude( PreparedStatement ps,
 
  @param conn database connection
  @param bean  bean intance
- @return bean instance updated (same of parameter bean)
+ @return bean instance updated (same of parameter bean) - null if not found
  @exception SQLException
  @see #findById
  */
  public T loadBean( Connection conn, T bean ) throws SQLException {
     String sql      = null;
     PreparedStatement ps = null;
+    T result = null;
 
     try {
 
@@ -1563,11 +1584,12 @@ private int setStoreStatementInclude( PreparedStatement ps,
 
     if( rs.next() ) {
       this.setBeanProperties( bean, rs );
+      result = bean;
     }
 
     rs.close();
 
-    return bean;
+    return result;
 
     }
     catch( SQLException sqlex ) {
@@ -1678,6 +1700,7 @@ private int setStoreStatementInclude( PreparedStatement ps,
     T bean;
 
     time = Log.TRACE_TIME_BEGIN();
+
 
     while( rs.next() ) {
       bean = instantiateBean();
