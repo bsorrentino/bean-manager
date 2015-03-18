@@ -1,0 +1,1 @@
+This page contains all the documentation provided with Bean-Manager
