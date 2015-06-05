@@ -13,7 +13,6 @@ import java.util.logging.Logger;
  * @author Bartolomeo Sorrentino
  * @version 1.0
  */
-
 public class Log {
 
     public static final Logger out = Logger.getLogger("bsc");

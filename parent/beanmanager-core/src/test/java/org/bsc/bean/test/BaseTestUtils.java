@@ -8,7 +8,12 @@ package org.bsc.bean.test;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.Properties;
+import java.util.logging.FileHandler;
+import java.util.logging.Handler;
+import java.util.logging.Level;
 import java.util.logging.LogManager;
+import java.util.logging.SimpleFormatter;
+import org.bsc.util.Log;
 
 
 /**
@@ -26,6 +31,24 @@ public class BaseTestUtils extends DDLUtils {
     
     public static void initLogger() throws Exception {
             LogManager.getLogManager().readConfiguration( TestBeanManager.class.getResourceAsStream("/logging.properties"));
+
+            {
+            final Handler h = new FileHandler("target/bsc-command.%u.%g.log", 1024*1024, 10, true) {{ 
+                this.setFormatter(new SimpleFormatter());
+            }};
+            Log.cmd.addHandler( h );
+            Log.cmd.setLevel(Level.FINEST);
+            }
+            
+            {
+            final Handler h = new FileHandler("target/bsc-out.%u.%g.log", 1024*1024, 10, true) {{ 
+                this.setFormatter(new SimpleFormatter());
+            }};
+            Log.out.addHandler( h );
+            Log.out.setLevel(Level.FINEST);
+            }
+            //Log.out.addHandler(h);
+            
     }
     
     public static Connection connect() throws Exception {
