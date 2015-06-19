@@ -183,28 +183,6 @@ public class BeanManagerTest {
 
     }
 
-    @Test
-    public void checkNonEntityInheritance() {
-
-        AbstractBeanManager<ItemCifF00091> m = (AbstractBeanManager<ItemCifF00091>) factory.createBeanManager(ItemCifF00091.class);
-
-        PropertyDescriptorField fieldM = m.getPropertyByName("M");
-
-        Assert.assertNull(fieldM);
-
-        {
-        String cs = m.getCreateStatement();
-
-        System.out.println( "CREATE STATEMENT\n" + cs );
-        }
-
-        {
-        String cs = m.getFindAllStatement();
-
-        System.out.println( "FINDALL STATEMENT\n" + cs );
-
-        }
-    }
     
     @Test
     public void outboundRecord() throws Exception{

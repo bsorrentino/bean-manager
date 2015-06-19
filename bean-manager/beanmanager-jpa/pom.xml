@@ -9,38 +9,21 @@
   <groupId>org.bsc.bean</groupId>
   <artifactId>beanmanager-jpa</artifactId>
   <version>1.6-SNAPSHOT</version>
-  <name>beanmanager jpa - trunk</name>
-  <url>http://code.google.com/p/bean-manager/</url>
+  <name>BeanManager::jpa - ${project.version}</name>
+  <url>https://github.com/bsorrentino/bean-manager</url>
 
-<scm>
-<url>https://bean-manager.googlecode.com/svn/trunk/parent/beanmanager-jpa</url>
-<connection>scm:svn:https://bean-manager.googlecode.com/svn/trunk/parent/beanmanager-jpa</connection>
-<developerConnection>scm:svn:https://bean-manager.googlecode.com/svn/trunk/parent/beanmanager-jpa</developerConnection>
-</scm>
 
 <profiles>
 	<profile>
 		<id>test-processor</id>
 				
-		<pluginRepositories>
-	   <pluginRepository>
-	                <id>sonatype-repo</id>
-	                <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-	                <releases>
-	                        <enabled>false</enabled>
-	                </releases>
-	                <snapshots>
-	                        <enabled>true</enabled>
-	                </snapshots>
-	    </pluginRepository>
-		</pluginRepositories>
 	
 		<dependencies>
 
 			<dependency>
 				<groupId>org.bsc.framework</groupId>
 				<artifactId>beanmanager-ddlutils</artifactId>
-				<version>1.4.1-SNAPSHOT</version>
+				<version>1.4.1</version>
 				<scope>test</scope>
 			</dependency>
 		
@@ -78,14 +61,6 @@
 		</build>
 	</profile>
 </profiles>
-<repositories>
-    <repository>
-      <url>http://ftp.ing.umu.se/mirror/eclipse/rt/eclipselink/maven.repo</url>
-      <id>eclipselink</id>
-      <layout>default</layout>
-      <name>Repository for library Library[eclipselink]</name>
-    </repository>
-  </repositories>
   <dependencies>
     <dependency>
         <groupId>org.bsc.bean</groupId>
@@ -119,28 +94,7 @@
         <groupId>org.kohsuke.metainf-services</groupId>
         <artifactId>metainf-services</artifactId>
     </dependency>
-   
-<!--     
-    <dependency>
-        <groupId>org.apache.ddlutils</groupId>
-        <artifactId>ddlutils</artifactId>
-        <version>1.0</version>
-        <scope>test</scope>
-    </dependency>
-
-   	<dependency>
-   		<groupId>miniTemplator</groupId>
-   		<artifactId>miniTemplator</artifactId>
-   		<version>1.0</version>
-   		<scope>test</scope>
-   	</dependency>
- -->
-   	<dependency>
-		<groupId>com.extjs</groupId>
-		<artifactId>gxt</artifactId>
-		<version>2.1.1</version>
-                <scope>test</scope>
-	</dependency>
+ 
   </dependencies>
 
   

@@ -4,7 +4,7 @@
 <groupId>org.bsc.bean</groupId>
 <artifactId>beanmanager-core</artifactId>
 <version>1.6-SNAPSHOT</version>
-<name>bean manager core - trunk</name>
+<name>BeanManager::core - ${project.version}</name>
   
 <parent>
     <artifactId>beanmanager</artifactId>
@@ -15,44 +15,12 @@
 <properties>
 </properties>
   
-<scm>
-<connection>scm:svn:https://bean-manager.googlecode.com/svn/trunk/parent/beanmanager-core</connection>
-<developerConnection>scm:svn:https://bean-manager.googlecode.com/svn/trunk/parent//beanmanager-core</developerConnection>
-<url>https://bean-manager.googlecode.com/svn/trunk/parent//beanmanager-core</url>
-</scm>
-
-
-<reporting>
-<plugins>
-  <plugin>
-    <groupId>org.apache.maven.plugins</groupId>
-    <artifactId>maven-javadoc-plugin</artifactId>
-    <version>2.9</version>
-  </plugin>
-<!-- 
-   <plugin>
-     <groupId>org.codehaus.mojo</groupId>
-     <artifactId>jxr-maven-plugin</artifactId>
-   </plugin>      
- -->
- </plugins>
- </reporting>
-
  <dependencies>
 
-<!--
- <dependency>
-  <groupId>org.eclipse.osgi</groupId>
-  <artifactId>org.eclipse.osgi</artifactId>
-  <version>3.3.0.v20070530</version>
-  <optional>true</optional>
-</dependency>
--->
 
 <dependency>
   <groupId>org.eclipse.osgi</groupId>
   <artifactId>org.eclipse.osgi</artifactId>
-  <version>3.2.0-v20060601</version>
   <optional>true</optional>
 </dependency>
 
@@ -228,18 +196,5 @@
    
 </profiles>
 
-<pluginRepositories>
-    <pluginRepository>
-      <id>maven-annotation-plugin</id>
-      <url>http://maven-annotation-plugin.googlecode.com/svn/trunk/mavenrepo</url>
-    </pluginRepository>
-</pluginRepositories>
-
-<repositories>
-    <repository>
-      <id>internationalization-processor</id>
-      <url>http://internationalization-processor.googlecode.com/svn/mavenrepo</url>
-    </repository>
-</repositories>
 
 </project>
